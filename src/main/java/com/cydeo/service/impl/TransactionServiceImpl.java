@@ -4,18 +4,25 @@ import com.cydeo.enums.AccountType;
 import com.cydeo.exception.AccountOwnershipException;
 import com.cydeo.exception.BadRequestException;
 import com.cydeo.exception.BalanceNotSufficientException;
+import com.cydeo.exception.UnderConstructionException;
 import com.cydeo.model.Account;
 import com.cydeo.model.Transaction;
 import com.cydeo.repository.AccountRepository;
 import com.cydeo.repository.TransactionRepository;
 import com.cydeo.service.TransactionService;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
+@Component
 public class TransactionServiceImpl implements TransactionService {
+
+    @Value("${under_construction}")
+    private boolean underConstruction;
 
     private final AccountRepository accountRepository;
     private final TransactionRepository transactionRepository;
@@ -28,25 +35,28 @@ public class TransactionServiceImpl implements TransactionService {
     @Override
     public Transaction makeTransfer(Account sender, Account receiver, BigDecimal amount, Date creationDate, String message) {
 
-        validateAccount(sender, receiver);
-        checkAccountOwnership(sender, receiver);
-        executeBalanceAndUpdateIfRequired(amount, sender, receiver);
+        if (!underConstruction) {
 
-        Transaction transaction = Transaction.builder().sender(sender.getId())
-                .receiver(receiver.getId()).amount(amount)
-                .creationDate(creationDate).message(message).build();
+            validateAccount(sender, receiver);
+            checkAccountOwnership(sender, receiver);
+            executeBalanceAndUpdateIfRequired(amount, sender, receiver);
 
-        return transactionRepository.save(transaction);
+            Transaction transaction = Transaction.builder().sender(sender.getId())
+                    .receiver(receiver.getId()).amount(amount)
+                    .creationDate(creationDate).message(message).build();
+
+            return transactionRepository.save(transaction);
+        } else throw new UnderConstructionException("App is under construction!");
     }
 
     //Validation methods
     private void executeBalanceAndUpdateIfRequired(BigDecimal amount, Account sender, Account receiver) {
-        if (checkSenderBalance(sender, amount)){
+        if (checkSenderBalance(sender, amount)) {
 
             sender.setBalance(sender.getBalance().subtract(amount));
             receiver.setBalance(receiver.getBalance().add(amount));
 
-        }else{
+        } else {
             throw new BalanceNotSufficientException("Sender does not have enough funds to proceed!");
         }
     }
@@ -84,9 +94,8 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
 
-
     @Override
     public List<Transaction> findAllTransactions() {
-        return null;
+        return transactionRepository.findAll();
     }
 }
