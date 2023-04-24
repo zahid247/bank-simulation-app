@@ -8,11 +8,13 @@ import com.cydeo.service.AccountService;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 
+import javax.validation.Valid;
 import java.util.Date;
 import java.util.UUID;
 
@@ -40,7 +42,13 @@ public class AccountController {
     }
 
     @PostMapping("/create")
-    public String createdAccount(@ModelAttribute("account") Account account){
+    public String createdAccount(@Valid @ModelAttribute("account") Account account,
+                                 BindingResult bindingResult, Model model){
+
+        if (bindingResult.hasErrors()){
+            model.addAttribute("accountTypes", AccountType.values());
+            return "account/create-account";
+        }
 
 //        System.out.println(account);
         accountService.createNewAccount(account.getBalance(), new Date(),
